@@ -33,10 +33,17 @@ target_include_directories(imgui PUBLIC ${imgui_SOURCE_DIR} ${imgui_SOURCE_DIR}/
 target_link_libraries(imgui PUBLIC d3d12 dxgi d3dcompiler dwmapi)
 
 # ---------- engine 静态库 ----------
-file(GLOB_RECURSE ENGINE_SRC CONFIGURE_DEPENDS engine/*.cpp)
+set(ENGINE_SRC
+  engine/core/log.cpp
+  engine/platform/window.cpp
+  engine/rhi/dx12.cpp
+  engine/runtime/game_module.cpp
+  engine/runtime/state_arena.cpp
+  engine/render/renderer.cpp
+)
 add_library(engine STATIC ${ENGINE_SRC})
 target_include_directories(engine PUBLIC engine)
-target_link_libraries(engine PUBLIC imgui d3d12 dxgi)
+target_link_libraries(engine PUBLIC imgui d3d12 dxgi d3dcompiler)
 
 # ---------- 游戏模块 (热重载 DLL) ----------
 add_library(game SHARED game/game_main.cpp)

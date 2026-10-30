@@ -125,4 +125,15 @@ void Dx12::EndFrame(bool vsync) {
     fenceVals_[frameIdx_] = ++fenceCounter_;
     queue_->Signal(fence_.Get(), fenceCounter_);
 }
+
+void Dx12::BindBackbuffer(ID3D12GraphicsCommandList* list) {
+    if (!list || !rtvHeap_) return;
+    D3D12_CPU_DESCRIPTOR_HANDLE rtv = rtvHeap_->GetCPUDescriptorHandleForHeapStart();
+    rtv.ptr += (SIZE_T)frameIdx_ * rtvInc_;
+    list->OMSetRenderTargets(1, &rtv, FALSE, nullptr);
+    D3D12_VIEWPORT vp = {0, 0, (float)w_, (float)h_, 0.f, 1.f};
+    D3D12_RECT sc = {0, 0, (LONG)w_, (LONG)h_};
+    list->RSSetViewports(1, &vp);
+    list->RSSetScissorRects(1, &sc);
+}
 }

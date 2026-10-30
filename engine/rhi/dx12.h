@@ -19,6 +19,9 @@ public:
     void EndFrame(bool vsync);
     void WaitIdle();
 
+    // 场景离屏画完后，把 OM/视口切回 swapchain，供 ImGui 使用
+    void BindBackbuffer(ID3D12GraphicsCommandList* list);
+
     bool AllocSrv(D3D12_CPU_DESCRIPTOR_HANDLE* cpu, D3D12_GPU_DESCRIPTOR_HANDLE* gpu); // 简易线性分配
     ID3D12Device* Device() const { return device_.Get(); }
     ID3D12CommandQueue* Queue() const { return queue_.Get(); }

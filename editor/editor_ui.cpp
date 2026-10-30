@@ -1,4 +1,5 @@
 #include "editor_ui.h"
+#include "interfaces/IRenderer.h"
 #include "imgui.h"
 #include "imgui_internal.h"
 #include <filesystem>
@@ -27,9 +28,20 @@ static void BuildDefaultLayout(ImGuiID root) {
 static void PanelViewport(EditorContext& c) {
     ImGui::Begin("Viewport");
     ImVec2 sz = ImGui::GetContentRegionAvail();
-    ImGui::Text("Renderer: not implemented (IRenderer stub)");
-    ImGui::Text("Region: %.0f x %.0f   interp alpha: %.2f", sz.x, sz.y, c.alpha);
-    ImGui::TextDisabled("TODO: 渲染目标纹理 -> ImGui::Image 显示场景");
+    if (sz.x < 1.f) sz.x = 1.f;
+    if (sz.y < 1.f) sz.y = 1.f;
+    c.vpW = (eng::u32)sz.x;
+    c.vpH = (eng::u32)sz.y;
+
+    if (c.renderer && c.renderer->HasColorTarget()) {
+        ImTextureID tex = (ImTextureID)c.renderer->ColorSrv().ptr;
+        ImGui::Image(tex, sz);
+    } else {
+        ImGui::TextDisabled("Renderer: waiting for color target (%u x %u)", c.vpW, c.vpH);
+    }
+    // 状态叠字（不挡 Image）
+    ImGui::SetCursorPos(ImVec2(8, 8));
+    ImGui::Text("Viewport %u x %u  alpha=%.2f", c.vpW, c.vpH, c.alpha);
     ImGui::End();
 }
 

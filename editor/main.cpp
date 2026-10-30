@@ -7,6 +7,7 @@
 #include "platform/window.h"
 #include "platform/input.h"
 #include "rhi/dx12.h"
+#include "render/renderer.h"
 #include "runtime/game_module.h"
 #include "runtime/state_arena.h"
 #include "imgui_layer.h"
@@ -30,22 +31,27 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
     win.onResize = [&](u32 w, u32 h) { dx.Resize(w, h); };
     editor::ImGuiInit(win.Hwnd(), dx);
 
+    Renderer renderer(dx);
+
     wchar_t exe[MAX_PATH]; GetModuleFileNameW(nullptr, exe, MAX_PATH);
     GameModule game;
     game.Init(std::filesystem::path(exe).parent_path() / L"game.dll");
 
     StateArena arena;
     std::vector<u8> snapshot;
+    std::vector<u8> prevState; // 上一逻辑帧，供渲染插值
     auto resetGame = [&] {
         const GameAPI* api = game.Api();
         if (!api) return;
         if (arena.Size() != api->stateSize) arena.Create(api->stateSize); else arena.Clear();
         api->Init(arena.Data(), arena.Size());
+        prevState.assign(arena.Size(), 0);
+        if (arena.Data() && arena.Size()) memcpy(prevState.data(), arena.Data(), (size_t)arena.Size());
         LogInfo("game reset");
     };
     resetGame();
 
-    editor::EditorContext ctx; ctx.game = &game; ctx.arena = &arena;
+    editor::EditorContext ctx; ctx.game = &game; ctx.arena = &arena; ctx.renderer = &renderer;
     constexpr double kStep = 1.0 / 60.0;     // 固定逻辑步长 60Hz
     double last = NowSec(), acc = 0.0, fpsTimer = 0.0; int fpsFrames = 0;
     const float clear[4] = {0.08f, 0.08f, 0.10f, 1.f};
@@ -57,7 +63,10 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         // ---- 热重载 ----
         bool reloaded = game.Poll((float)dt);
         if (ctx.reloadReq) { reloaded = game.ForceReload(); ctx.reloadReq = false; }
-        if (reloaded && game.Api() && game.Api()->stateSize != arena.Size()) { LogWarn("state layout changed -> reset"); resetGame(); snapshot.clear(); ctx.hasSnapshot = false; }
+        if (reloaded && game.Api() && game.Api()->stateSize != arena.Size()) {
+            LogWarn("state layout changed -> reset");
+            resetGame(); snapshot.clear(); ctx.hasSnapshot = false;
+        }
 
         // ---- UI 请求 ----
         if (ctx.resetReq) { resetGame(); ctx.resetReq = false; }
@@ -71,6 +80,11 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
         u16 in[2]; PollInput(win.Hwnd(), in);
         while (acc >= kStep) {
             if ((ctx.running || ctx.stepOnce) && game.Api()) {
+                // 保留上一帧供插值
+                if (arena.Data() && arena.Size()) {
+                    prevState.resize((size_t)arena.Size());
+                    memcpy(prevState.data(), arena.Data(), (size_t)arena.Size());
+                }
                 GameInput gi{{in[0], in[1]}};
                 game.Api()->Tick(arena.Data(), &gi);
                 ++ctx.ticks;
@@ -85,9 +99,22 @@ int WINAPI WinMain(HINSTANCE, HINSTANCE, LPSTR, int) {
 
         // ---- 渲染 ----
         editor::ImGuiNewFrame();
-        editor::DrawEditor(ctx);
+        editor::DrawEditor(ctx); // 写入 ctx.vpW/vpH，并 Image 上一帧 RT
+
+        if (ctx.vpW && ctx.vpH) renderer.Resize(ctx.vpW, ctx.vpH);
+
         auto* list = dx.BeginFrame(clear);
-        // TODO: IRenderer 场景渲染在此
+
+        RenderView rv;
+        rv.state = arena.Data();
+        rv.prevState = prevState.size() == arena.Size() ? prevState.data() : nullptr;
+        rv.stateSize = arena.Size();
+        rv.alpha = ctx.alpha;
+        rv.width = ctx.vpW;
+        rv.height = ctx.vpH;
+        renderer.Draw(list, rv);
+
+        dx.BindBackbuffer(list); // 切回 swapchain 给 ImGui
         editor::ImGuiRender(list, dx);
         dx.EndFrame(true);
     }
