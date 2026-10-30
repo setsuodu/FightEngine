@@ -1,6 +1,7 @@
 #pragma once
 // 16.16 定点数占位实现。Sim 层只用它，不用 float。后续由别的 AI 补全 (除法/三角/sqrt 等)。
 #include "core/types.h"
+#include <compare>
 namespace eng {
 struct Fixed {
     i32 raw = 0;
