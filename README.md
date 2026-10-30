@@ -10,6 +10,21 @@ build\bin\Debug\editor.exe
 ```
 (或直接用 VS2022 "打开文件夹" 方式打开本目录)
 
+## CI / 发布
+
+- **PR / push main**：`.github/workflows/build.yml` → Windows VS2022 Debug+Release，上传 artifact
+- **Tag 发布**：`.github/workflows/release.yml`
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+# 或：git tag editor/v0.1.0 && git push origin editor/v0.1.0
+```
+
+会自动编译 Release、打 zip，并在 GitHub Releases 挂上：
+- `FightEngine-0.1.0-win-x64.zip`
+- `editor.exe` + `game.dll`
+
 ## 已有
 - Win32 窗口 + DX12 (设备/队列/3 帧 in-flight/围栏/清屏/Resize) + ImGui Docking
 - 固定 60Hz 逻辑循环 + 变帧率渲染 + 插值系数
@@ -26,4 +41,3 @@ build\bin\Debug\editor.exe
 
 ## 已知限制
 - 热重载用的是复制出的 game_live_N.dll, 调试器按原名找 PDB 可能对不上; 需要断点调试时先 Force reload 后再附加, 或之后改用 PDB 重命名方案。
-- 未在 Windows 上编译验证过, 首次编译若有小报错请把错误贴给 AI 修。
