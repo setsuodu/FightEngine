@@ -17,9 +17,6 @@ cmake --build build --config Debug
 build\bin\Debug\editor.exe
 ```
 
-VS 2022 用 `-G "Visual Studio 17 2022"`。  
-也可以在 VS 里「打开文件夹」直接打开本目录。
-
 若更换生成器，先删掉旧 `build` 再配置：
 
 ```bat
